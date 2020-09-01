@@ -23,6 +23,10 @@ def train_hankels(training_generator, vali_generator, step_size = 100, lr = 0.01
 
 def normalize(x):
     return (x - np.mean(x))/np.std(x)
+def normalize_tensor(x):
+    ori_shape = x.shape
+    new_x = x.reshape(x.shape[0], -1)
+    return (new_x - np.mean(new_x, axis = 0)/ np.std(new_x, axis=0)).reshape(ori_shape)
 def get_all_hankels(training_generators, vali_generators, step_size = 100, lr = 0.01, gamma = 0.1,
                     rank = 5, input_dim = 4, encoded_dim = 10, encoder_hidden = 10,
                     output_dim = 2, l = 3, seed=0, device='cpu', if_rescale_weights= False, epochs = 500):
@@ -44,8 +48,8 @@ def get_all_hankels(training_generators, vali_generators, step_size = 100, lr = 
     }
     # training_generator = torch.utils.data.DataLoader(trainings['2l1'], **generator_params)
     # vali_generator = torch.utils.data.DataLoader(validations['2l1'], **generator_params)
-    hankel_l = train_hankels(training_generators['l'], vali_generators['l'], encoder=None, **hankel_params, l=l)
-    print('Start constructing hankel for l')
+    #hankel_l = train_hankels(training_generators['l'], vali_generators['l'], encoder=None, **hankel_params, l=l)
+    print('Start constructing hankel for 2l1')
     hankel_2l1 = train_hankels(training_generators['2l1'], vali_generators['2l1'], encoder = None, **hankel_params, l = 2*l+1)
     encoder = [hankel_2l1.encoder1, hankel_2l1.encoder2]
     #print(encoder[0].weight)
@@ -58,7 +62,7 @@ def get_all_hankels(training_generators, vali_generators, step_size = 100, lr = 
 
     # training_generator = torch.utils.data.DataLoader(trainings['l'], **generator_params)
     # vali_generator = torch.utils.data.DataLoader(validations['l'], **generator_params)
-    print('Start constructing hankel for 2l1')
+    print('Start constructing hankel for l')
     hankel_l = train_hankels(training_generators['l'], vali_generators['l'], encoder=encoder, **hankel_params, l = l)
     return hankel_2l1, hankel_2l, hankel_l
 
@@ -76,10 +80,12 @@ def get_data_generator(kde, env = gym.make('Pendulum-v0'), num_trajs = 1000, max
     observation_all_pr, action_all_pr, x_pr, new_rewards_pr = generate_data(**kde_params)
 
 
-    pr = construct_dataset_PR(kde, x_pr, new_rewards_pr).reshape(-1, 1)
-    #pr = normalize(pr)
+    pr = construct_dataset_PR(kde, x_pr, new_rewards_pr)
+    # print(x_pr.shape)
+    # pr = x_pr[:, 0, 0]
+    pr = normalize(pr)
     #print(pr[:5], new_rewards_pr[:5])
-
+    # x_pr = normalize_tensor(x_pr)
     new_data = Dataset(data=[tl.tensor(x_pr).float(), tl.tensor(pr).float()])
 
     # Generators
@@ -106,7 +112,7 @@ def get_all_kdes(kde_params, l):
 if __name__ == '__main__':
     l = 2
     load_kde = True
-    generator_params = {'batch_size': 128,
+    generator_params = {'batch_size': 512,
                         'shuffle': True,
                         'num_workers': 0}
     kde_params = {'env': gym.make('Pendulum-v0'),
@@ -125,7 +131,7 @@ if __name__ == '__main__':
 
     sampling_params_train = {
                       'env': gym.make('Pendulum-v0'),
-                      'num_trajs': 1000,
+                      'num_trajs': 10000,
                       'max_episode_length': 10}
     sampling_params_vali = {'env': gym.make('Pendulum-v0'),
                              'num_trajs': 1000,
@@ -142,7 +148,7 @@ if __name__ == '__main__':
     training_generators['2l1'] = get_data_generator(**generator_params, **sampling_params_train, kde=kde_2l1, window_size= 2*l+1)
     vali_generators['2l1'] = get_data_generator(**generator_params, **sampling_params_vali, kde=kde_2l1, window_size= 2*l+1)
 
-    hankel_params =  {'step_size' : 100, 'epochs': 100, 'lr' : 0.01, 'gamma' : 0.1,
-                    'rank' :10, 'input_dim' : 4, 'encoded_dim' : 5, 'encoder_hidden' : 10,
-                    'output_dim' : 1, 'l' : l, 'seed':1993, 'device':'cpu', 'if_rescale_weights': False}
+    hankel_params =  {'step_size' : 100, 'epochs': 1000, 'lr' : 0.01, 'gamma' : 1.,
+                    'rank' :30, 'input_dim' : 4, 'encoded_dim' : 10, 'encoder_hidden' : 10,
+                    'output_dim' : 1, 'l' : l, 'seed':1993, 'device':'cpu', 'if_rescale_weights': True}
     get_all_hankels(training_generators, vali_generators, **hankel_params)

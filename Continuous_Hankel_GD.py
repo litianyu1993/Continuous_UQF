@@ -39,6 +39,7 @@ def MPS_contraction_single_sample(mps, x):
     tmp = contracted[0]
     for i in range(1, x.shape[0]):
         tmp = tmp @ contracted[i]
+        #tmp = F.relu(tmp)
     return tmp.squeeze()
 
 def MPS_contraction_samples(mps, x):
@@ -117,6 +118,7 @@ class Hankel(nn.Module):
         # for i in range(len(self.H)):
         #     print(i, self.H[i].shape)
         contracted_x = MPS_contraction_samples(self.H, encoded_x)
+        #contracted_x = [MPS_contraction_single_sample(self.H, e_x) for e_x in encoded_x]
         return torch.stack(contracted_x)
 
 
@@ -143,15 +145,15 @@ def train(model, device, train_loader, optimizer, epoch):
         #                100. * batch_idx / len(train_loader), loss.item()))
 
         error.append(loss.item())
-    # print(output[:5], target[:5])
+    print(output[:5], target[:5])
     # print(model.H[0])
-    for i in range(len(model.H)):
-        print(model.H[i].grad)
-    print(model.encoder1.weight.grad)
-    print(model.encoder2.weight.grad)
-    print(loss)
-    print(model.encoder1.bias.grad)
-    print(model.encoder2.bias.grad)
+    # for i in range(len(model.H)):
+    #     print(model.H[i].grad)
+    # print(model.encoder1.weight.grad)
+    # print(model.encoder2.weight.grad)
+    # print(loss)
+    # print(model.encoder1.bias.grad)
+    # print(model.encoder2.bias.grad)
 
     print('\nTrain Epoch: ' + str(epoch) + ' Training Loss: ' + str(sum(error) / len(error)))
     return sum(error) / len(error)
@@ -184,7 +186,7 @@ def Training_process(hankel, training_generator, validation_generator, lr, step_
     # params.append(hankel.encoder2.weight)
 
 
-    optimizer = optim.SGD(params, lr=lr)
+    optimizer = optim.Adam(params, lr=lr, amsgrad  = True)
     #for i in range(len(hankel.H)):
     #    print('train hankel', hankel.H[i].shape)
     # scheduler for automatic decaying the learning rate
@@ -218,9 +220,12 @@ if __name__ == '__main__':
 
     x = np.random.rand(2000, 6, 4)
     y = hankel(x)
+    #y = tl.tensor(x[:, :2, 0]).float()
+    #y = tl.tensor(np.ones(y.shape)).float()
     training = Dataset(data=[x, y])
 
     # Generators
+
     training_generator = torch.utils.data.DataLoader(training, **generator_params)
 
     x = np.random.rand(1000, 6, 4)
@@ -228,7 +233,7 @@ if __name__ == '__main__':
     validation = Dataset(data=[x, y])
     validation_generator = torch.utils.data.DataLoader(validation, **generator_params)
 
-    hankel = Hankel(rank=3, input_dim=4, encoded_dim=3, encoder_hidden=10,
+    hankel = Hankel(rank=5, input_dim=4, encoded_dim=10, encoder_hidden=10,
                     output_dim=2, max_length=6, seed=0, device=device, if_rescale_weights=True)
 
     hankel, train_error, vali_error = Training_process(hankel = hankel, training_generator = training_generator
