@@ -4,15 +4,21 @@ import KDE
 import numpy as np
 # Specifying hyper-parameters
 
-def sliding_window(action_obs, rewards, window_size):
+def sliding_window(action_obs, rewards, window_size, action_all, obs_all):
     windowed_action_obs = []
     windowed_rewards = []
+    windowed_action = []
+    windowed_obs = []
     assert action_obs.shape[1] == rewards.shape[1]
     for j in range(action_obs.shape[0]):
         for i in range(action_obs.shape[1] - window_size):
             windowed_action_obs.append(action_obs[j, i:i+window_size, :])
             windowed_rewards.append(rewards[j, i+window_size])
-    return np.asarray(windowed_action_obs), np.asarray(windowed_rewards)
+            windowed_obs.append(obs_all[j, i:i+window_size, :])
+            windowed_action.append(action_all[j, i:i + window_size, :])
+    #print(action_all.shape, obs_all.shape)
+    #print(np.asarray(windowed_action).shape, np.asarray(windowed_action).shape)
+    return np.asarray(windowed_action_obs), np.asarray(windowed_rewards), np.asarray(windowed_action), np.asarray(windowed_obs)
 
 
 
@@ -40,8 +46,8 @@ def generate_data(env = gym.make('Pendulum-v0'), num_trajs = 1000, max_episode_l
     reward_all += 17 #Make reward positive
 
     action_obs = KDE.combine_obs_action(observation_all, action_all)
-    x, new_rewards = sliding_window(action_obs, reward_all, window_size)
-    return observation_all, action_all, x, new_rewards
+    x, new_rewards, action_all_new, obs_all_new = sliding_window(action_obs, reward_all, window_size, action_all, observation_all)
+    return action_all_new, obs_all_new, x, new_rewards
 
 
 def construct_dataset_PR(kde, x, new_rewards):
@@ -77,7 +83,7 @@ if __name__ == '__main__':
                                                                 window_size=5)
 
     pr = construct_dataset_PR(kde, x_pr, new_rewards_pr)
-    print(pr[:5],new_rewards_pr[:5],  x_pr.shape)
+    print(pr[:5],new_rewards_pr[:5],  x_pr.shape, action_all_pr.shape, observation_all_pr.shape)
 
 
 
