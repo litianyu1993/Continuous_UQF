@@ -60,8 +60,8 @@ if __name__ == '__main__':
     L = 2
     load_kde = True
     env_name = 'Pendulum-v0'
-    lr = 0.05
-    epochs = 100
+    lr = 0.001
+    epochs = 1000
 
     generator_params = {'batch_size': 512,
                         'shuffle': True,
@@ -79,14 +79,14 @@ if __name__ == '__main__':
                      'device': 'cpu',
                      'rescale': True}
     sampling_params_train = {'env': gym.make(env_name),
-                             'num_trajs': 1000,
+                             'num_trajs': 10000,
                              'max_episode_length': 10}
     sampling_params_vali = {'env': gym.make(env_name),
                             'num_trajs': 100,
                             'max_episode_length': 10}
     scheduler_params = {
         'step_size': 50,
-        'gamma': 0.5
+        'gamma': 1
     }
 
     hankel_l, hankel_2l, hankel_2l1 = construct_all_hankels(L, load_kde, env_name, lr, epochs, generator_params,
@@ -101,6 +101,8 @@ if __name__ == '__main__':
     Hankels_mpo = [Hankel_l, Hankel_2l, Hankel_2l1]
     Hankels_mps = conver_all_hankel_to_mps(Hankels_mpo)
 
+    print(Hankels_mps[-1])
+
     action_encoder = Encoder_FC(init_encoder=hankel_2l1.encoder_action)
     obs_encoder = Encoder_FC(init_encoder=hankel_2l1.encoder_obs)
 
@@ -108,6 +110,9 @@ if __name__ == '__main__':
     alpha, A, Omega = TT_spectral_learning(Hankels_mps[1], Hankels_mps[2], Hankels_mps[0])
     cwfa_ao = CWFA_AO(alpha, convert_mps_core_back_to_mpo_core(Hankel_2l1[1], A), Omega)
 
+    print(alpha)
+    print(A)
+    print(Omega)
 
     tl.set_backend('pytorch')
     env_name = 'Pendulum-v0'

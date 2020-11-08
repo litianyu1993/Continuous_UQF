@@ -63,8 +63,21 @@ def MPO_contraction_single_sample(mpo, x1, x2):
         tmp = tmp @ contracted_final[i]
     return tmp.squeeze()
 def MPO_contraction_samples(mpo, x1, x2):
-    contracted = [MPO_contraction_single_sample(mpo, data1, data2) for data1, data2 in zip(x1.clone(), x2.clone())]
-    return contracted
+    #contracted = [MPO_contraction_single_sample(mpo, data1, data2) for data1, data2 in zip(x1.clone(), x2.clone())]
+    assert  len(x1) == len(x2), print('action observation needs to have the same number')
+    assert x1.shape[1] == x2.shape[1], print('action observation needs to have the same time steps')
+
+    contracted = []
+    for t in range(x1.shape[1]):
+        tmp1 = x1[:,t, :]
+        tmp2 = x2[:,t, :]
+        temp_core = torch.einsum('pjkl, ij, ik->pil', mpo[t], tmp1, tmp2)
+        contracted.append(temp_core)
+
+    tmp_contract = contracted[0]
+    for t in range(1, len(contracted)):
+        tmp_contract = torch.einsum('pil, lik->pik', tmp_contract, contracted[t])
+    return tmp_contract.squeeze()
 
 def get_tensor_size(w):
     size = 1
@@ -166,7 +179,8 @@ class Hankel(nn.Module):
         encoded_obs = encoded_obs.reshape(input_obs_shape[0], input_obs_shape[1], -1)
         #print(encoded_action.shape, encoded_obs.shape, action.shape, obs.shape)
         contracted = MPO_contraction_samples(self.H, encoded_action, encoded_obs)
-        return torch.stack(contracted)
+        #print(contracted.shape)
+        return contracted
     def get_params(self):
         params = []
         for i in range(len(self.encoder_action)):
