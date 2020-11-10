@@ -91,7 +91,7 @@ def init_weight(w):
 
 class Hankel(nn.Module):
     def __init__(self, action_dim, obs_dim, rank, encoded_dim_action, encoded_dim_obs, hidden_units_action, hidden_units_obs
-                 , output_dim, max_length, seed = 0, device = 'cpu', rescale = True, freeze_encoder = False,
+                 , output_dim, max_length, seed = 0, device = 'cpu', rescale = False, freeze_encoder = False,
                  encoder_action = None, encoder_obs = None):
         super(Hankel, self).__init__()
         np.random.seed(seed)
@@ -123,15 +123,16 @@ class Hankel(nn.Module):
             if k == max_length - 1:
                 dim_3 = output_dim
 
-            H_tmp = tl.tensor(np.random.rand(dim_0, dim_1, dim_2, dim_3))
+            #H_tmp = tl.tensor(np.random.rand(dim_0, dim_1, dim_2, dim_3))*2 - 1
+            H_tmp = tl.tensor(np.random.normal(0, 1, [dim_0, dim_1, dim_2, dim_3]))
             identity = np.zeros([dim_0, dim_1*dim_2, dim_3])
             for j in range(min(dim_0, dim_3)):
                 identity[j, :, j] += 1.
             if rescale:
-                H_tmp = init_weight(H_tmp)
-                #H_tmp = init_weight(H_tmp) + identity.reshape([dim_0, dim_1, dim_2, dim_3])
+                #H_tmp = init_weight(H_tmp)
+                H_tmp = init_weight(H_tmp) + identity.reshape([dim_0, dim_1, dim_2, dim_3])
 
-            H_tmp = tl.tensor(H_tmp, device=device, requires_grad=True)
+            H_tmp = torch.nn.parameter.Parameter(torch.tensor(H_tmp.float(), requires_grad=True)).to(device)
             self.H.append(H_tmp)
 
     def init_FC_encoder(self, hidden_units, input_dim, encoded_dim, freeze_encoder):
@@ -157,7 +158,7 @@ class Hankel(nn.Module):
         x = x.float()
         for i in range(len(encoder_FC)):
             x = encoder_FC[i](x)
-            x = F.relu(x)
+            x = F.tanh(x)
         return x
 
     def forward(self, action, obs):
@@ -182,7 +183,7 @@ class Hankel(nn.Module):
         #print(contracted.shape)
         return contracted
     def get_params(self):
-        params = []
+        params = nn.ParameterList([])
         for i in range(len(self.encoder_action)):
             params.append(self.encoder_action[i].weight)
             params.append(self.encoder_action[i].bias)

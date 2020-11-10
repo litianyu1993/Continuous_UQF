@@ -11,11 +11,14 @@ def sliding_window(action_obs, rewards, window_size, action_all, obs_all):
     windowed_obs = []
     assert action_obs.shape[1] == rewards.shape[1]
     for j in range(action_obs.shape[0]):
-        for i in range(action_obs.shape[1] - window_size):
+        i = 0
+        while i < action_obs.shape[1] - window_size:
+        #for i in range(action_obs.shape[1] - window_size):
             windowed_action_obs.append(action_obs[j, i:i+window_size, :])
             windowed_rewards.append(rewards[j, i+window_size])
             windowed_obs.append(obs_all[j, i:i+window_size, :])
             windowed_action.append(action_all[j, i:i + window_size, :])
+            i+= window_size
     #print(action_all.shape, obs_all.shape)
     #print(np.asarray(windowed_action).shape, np.asarray(windowed_action).shape)
     return np.asarray(windowed_action_obs), np.asarray(windowed_rewards), np.asarray(windowed_action), np.asarray(windowed_obs)
@@ -43,12 +46,19 @@ def generate_data(env = gym.make('Pendulum-v0'), num_trajs = 1000, max_episode_l
                                                                num_trajs=num_trajs,
                                                                max_episode_length=max_episode_length)
     'Need to change this in the future for other environments'
-    reward_all += 17 #Make reward positive
+    #reward_all += 17 #Make reward positive
 
     action_obs = KDE.combine_obs_action(observation_all, action_all)
     x, new_rewards, action_all_new, obs_all_new = sliding_window(action_obs, reward_all, window_size, action_all, observation_all)
-    return action_all_new, obs_all_new, x, new_rewards
 
+
+    #print(obs_all_new.shape)
+    return action_all_new, obs_all_new,x, new_rewards
+def normalize(x):
+    ori_shape = x.shape
+    new_x = x.reshape(x.shape[0], -1)
+    new_x = (new_x - np.mean(new_x, axis = 0))/np.std(new_x, axis=0)
+    return new_x.reshape(ori_shape)
 
 def construct_dataset_PR(kde, x, new_rewards):
     # observation_all, reward_all, action_all = get_trajectories(random_agent, env=env,
