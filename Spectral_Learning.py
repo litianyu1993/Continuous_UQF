@@ -62,7 +62,7 @@ if __name__ == '__main__':
     load_kde = True
     env_name = 'Pendulum-v0'
     lr = 0.001
-    epochs = 2000
+    epochs = 10000
 
     generator_params = {'batch_size': 512,
                         'shuffle': True,

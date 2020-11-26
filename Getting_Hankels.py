@@ -19,8 +19,8 @@ def train_hankel(training_generator, vali_generator, hankel,device, scheduler, o
     hankel, train_error, vali_error = Training_process(hankel, training_generator, vali_generator,
                                                            scheduler, optimizer, device=device,
                                                             verbose=verbose,epochs = epochs)
-    plt.plot(train_error[2:], label = 'Training')
-    plt.plot(vali_error[2:], label = 'Validation')
+    plt.plot(np.log(train_error[2:]), label = 'Training')
+    plt.plot(np.log(vali_error[2:]), label = 'Validation')
     plt.legend()
     plt.xlabel('Epochs')
     plt.ylabel('MSE')

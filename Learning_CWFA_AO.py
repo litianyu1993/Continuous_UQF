@@ -190,14 +190,14 @@ if __name__ == '__main__':
     env_name = 'Pendulum-v0'
     lr = 0.001
     epochs = 10000
-    generator_params = {'batch_size': 1024,
+    generator_params = {'batch_size': 256,
                         'shuffle': True,
                         'num_workers': 0}
     kde_params = {'env': gym.make(env_name),
                   'num_trajs': 1000,
                   'max_episode_length': 10}
     sampling_params_train = {'env': gym.make(env_name),
-                             'num_trajs': 1000,
+                             'num_trajs': 10000,
                              'max_episode_length': 10}
     sampling_params_vali = {'env': gym.make(env_name),
                             'num_trajs': 100,
@@ -218,14 +218,14 @@ if __name__ == '__main__':
     vali_generator= get_data_generator(dataset=vali_dataset, **generator_params)
 
 
-    cwfa_params = {'rank': 30,
+    cwfa_params = {'rank': 100,
                    'dim_a': training_dataset.action.shape[-1],
                    'dim_o': training_dataset.obs.shape[-1],
                    'encode_a_dim': 5,
                    'encode_o_dim': 5,
                    'out_dim': training_dataset.y.ndim,
-                   'action_hidden': [10],
-                   'obs_hidden':[10],
+                   'action_hidden': [5],
+                   'obs_hidden':[5],
                    'device': 'cpu'}
     scheduler_params = {
         'step_size': 500,

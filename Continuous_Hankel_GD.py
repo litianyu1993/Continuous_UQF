@@ -158,7 +158,7 @@ class Hankel(nn.Module):
         x = x.float()
         for i in range(len(encoder_FC)):
             x = encoder_FC[i](x)
-            x = F.tanh(x)
+            #x = F.sigmoid(x)
         return x
 
     def forward(self, action, obs):

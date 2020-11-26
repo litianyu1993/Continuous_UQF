@@ -5,8 +5,8 @@ import tensorly as tl
 from Getting_Hankels import get_data_generator, construct_all_hankels
 L = 2
 load_kde = True
-lr = 0.001
-epochs = 10000
+lr = 0.01
+epochs = 1000
 
 generator_params = {'batch_size': 512,
                     'shuffle': True,
