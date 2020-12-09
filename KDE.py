@@ -1,4 +1,4 @@
-from Getting_traj import get_trajectories, random_agent
+from sample_trajectories import get_trajectories, random_agent
 import numpy as np
 from sklearn.neighbors import KernelDensity
 from matplotlib import pyplot as plt
@@ -20,6 +20,7 @@ def Compute_KDE(x, bandwidths = 10 ** np.linspace(-1, 1, 100)):
                         cv=KFold(n_splits=2, shuffle= True))
     grid.fit(x)
     return grid
+
 def compute_score(kde, x):
     scores = []
     for i in range(len(x)):
@@ -32,24 +33,28 @@ def compute_prob(kde, x):
         scores.append(np.exp(kde.score(x[i].reshape(1, -1))))
     return scores
 
-if __name__ == '__main__':
-    observation_all, reward_all, action_all = get_trajectories(random_agent, env = env,
-                                                               num_trajs= num_trajs, max_episode_length= max_traj_length)
+def simple_test_KDE():
+    option = {
+        'num_trajs': 1000,
+        'max_episode_length': 10
+    }
+    observation_all, reward_all, action_all = get_trajectories(**option)
 
     action_obs = combine_obs_action(observation_all, action_all)
-    #print(action_obs.shape, reward_all.shape)
+    # print(action_obs.shape, reward_all.shape)
     x = action_obs.reshape(num_trajs, -1)
-
+    print(x.shape)
     kde = Compute_KDE(x)
 
-
-    observation_all, reward_all, action_all = get_trajectories(random_agent, env = env,
-                                                               num_trajs= num_trajs, max_episode_length= max_traj_length)
+    observation_all, reward_all, action_all = get_trajectories(**option)
     action_obs = combine_obs_action(observation_all, action_all)
     x_test = action_obs.reshape(num_trajs, -1)
 
     logprob = compute_score(kde, x_test)
     print(logprob)
+
+if __name__ == '__main__':
+    simple_test_KDE()
 
 
 

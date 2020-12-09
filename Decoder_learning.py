@@ -7,8 +7,6 @@ from torch import nn
 import gym
 import pickle
 from torch.optim.lr_scheduler import StepLR
-from Getting_Hankels import get_dataset
-from Getting_Hankels import get_data_generator, get_all_kdes
 from Learning_CWFA_AO import CWFA_AO, train, vali, Training_process
 
 class Dataset(torch.utils.data.Dataset):
@@ -57,9 +55,7 @@ class Decoder_FC(nn.Module):
         self.Decoder = []
         for i in range(len(self.encoder)):
             self.Decoder.append(nn.Linear(self.encoder[-i-1].weight.shape[0], self.encoder[-i-1].weight.shape[1]).to(self.device))
-            #print(self.Decoder[-1].weight.shape)
-        #self.Decoder = nn.Linear(10, 3).to(self.device)
-        #self.Decoder[-1].weight = self._rescale(self.Decoder[-1].weight)
+
         self.input_dim = self.encoder[-1].weight.shape[1]
         self._get_params()
     def _rescale(self, w):
@@ -182,14 +178,7 @@ if __name__ == '__main__':
 
 
 
-    # linear_nn = linear(x.shape[1], y.shape[1])
-    # optimizer = optim.Adam(linear_nn.parameters(), lr=lr, amsgrad=True)
-    # scheduler = StepLR(optimizer, **scheduler_params)
-    # linear_nn, train_loss_tt, vali_loss_tt = Training_process(linear_nn, train_generator, vali_generator, scheduler,
-    #                                                         optimizer,
-    #                                                         epochs, device='cpu',
-    #                                                         verbose=True)
-    #print(len(decoder.Decoder))
+
     optimizer = optim.Adam(decoder.parameters(), lr=lr, amsgrad=True)
     scheduler = StepLR(optimizer, **scheduler_params)
     decoder, train_loss_tt, vali_loss_tt = Training_process(decoder, train_generator, vali_generator, scheduler, optimizer,

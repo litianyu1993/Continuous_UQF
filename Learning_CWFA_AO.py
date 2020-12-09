@@ -9,13 +9,34 @@ import pickle
 from torch.optim.lr_scheduler import StepLR
 from Getting_Hankels import get_dataset
 from Getting_Hankels import get_data_generator, get_all_kdes
+
 class CWFA_AO(nn.Module):
 
-    def __init__(self, rank = 5, dim_a= 3, dim_o= 3, encode_a_dim = 5,
-                 encode_o_dim = 5, out_dim = 1, action_hidden = None, obs_hidden = None,
-                 alpha = None, A = None,
-                 Omega = None, action_encoder = None, obs_encoder = None, freeze_encoder = False,
-                 device = 'cpu'):
+    def __init__(self, **option):
+        option_default = {
+            'rank': 5,
+            'dim_a': 3,
+            'dim_o': 3,
+            'encode_a_dim': 5,
+            'encode_o_dim': 5,
+            'out_dim': 1,
+            'action_hidden': None,
+            'obs_hidden': None,
+            'alpha': None,
+            'A': None,
+            'Omega': None,
+            'action_encoder': None,
+            'obs_encoder': None,
+            'freeze_encoder': False,
+            'device': 'cpu'
+        }
+        option = {**option_default, **option}
+        rank, dim_a, dim_o, encode_a_dim, encode_o_dim, out_dim, \
+        action_hidden, obs_hidden, alpha, A, Omega, action_encoder, obs_encoder, freeze_encoder, device = \
+        option['rank'], option['dim_a'], option['dim_o'], option['encode_a_dim'], option['encode_o_dim'], option['out_dim'], \
+        option['action_hidden'], option['obs_hidden'], option['alpha'], option['A'], option['Omega'], option['action_encoder'], \
+        option['obs_encoder'], option['freeze_encoder'], option['device']
+
         super(CWFA_AO, self).__init__()
         self.device = device
         if alpha is not None:
@@ -36,11 +57,13 @@ class CWFA_AO(nn.Module):
         else:
             self.action_encoder = self._init_FC_encoder(action_hidden, dim_a, encode_a_dim, freeze_encoder)
         if obs_encoder is not None:
-            self.obs_encoder=  obs_encoder
+            self.obs_encoder =  obs_encoder
         else:
             self.obs_encoder = self._init_FC_encoder(obs_hidden, dim_o, encode_o_dim, freeze_encoder)
         self.leakyReLu = torch.nn.LeakyReLU(inplace=False)
         self._get_params()
+        self.dim_a = dim_a
+        self.dim_o = dim_o
 
     def _init_FC_encoder(self, hidden_units, input_dim, encoded_dim, freeze_encoder):
         encoder = []
@@ -53,22 +76,19 @@ class CWFA_AO(nn.Module):
             dim0 = hidden_units_[i]
             dim1 = hidden_units_[i + 1]
             encoder.append(nn.Linear(dim0, dim1).to(self.device))
-            #self.bn.append(nn.BatchNorm1d(dim1))
-            #identity = np.zeros([dim0, dim1])
-            # for j in range(min(dim0, dim1)):
-            #     encoder[-1].weight.data[j, j] = encoder[-1].weight.data[j, j] + 1.
-            #encoder[-1].weight = encoder[-1].weight + torch.from_numpy(identity).float()
             if freeze_encoder:
                 encoder[-1].weight.requires_grad = False
                 encoder[-1].bias.requires_grad = False
         return encoder
 
-    def _encode_FC(self, encoder_FC, x):
+    def encode_FC(self, encoder_FC, x):
         x = x.float()
         for i in range(len(encoder_FC)):
             x = encoder_FC[i](x)
-            #if not i == len(encoder_FC) - 1:
-            x = self.leakyReLu(x)
+            if i < len(encoder_FC) - 1:
+                x = self.leakyReLu(x)
+            else:
+                x = F.sigmoid(x)
         return x
 
     def forward(self, action, obs):
@@ -83,15 +103,11 @@ class CWFA_AO(nn.Module):
         input_obs_shape = obs.shape
         action_r = action.reshape(action.shape[0] * action.shape[1], -1)
         obs_r = obs.reshape(obs.shape[0] * obs.shape[1], -1)
-        encoded_action = self._encode_FC(self.action_encoder, action_r)
-        encoded_obs = self._encode_FC(self.obs_encoder, obs_r)
+        encoded_action = self.encode_FC(self.action_encoder, action_r)
+        encoded_obs = self.encode_FC(self.obs_encoder, obs_r)
 
         act_seq = encoded_action.reshape(input_action_shape[0], input_action_shape[1], -1)
         obs_seq = encoded_obs.reshape(input_obs_shape[0], input_obs_shape[1], -1)
-
-        # ones = torch.ones([input_action_shape[0], input_action_shape[1], 1])
-        # act_seq = torch.cat([act_seq, ones], dim = 2)
-        # obs_seq = torch.cat([obs_seq, ones], dim=2)
 
         mps = []
         for t in range(act_seq.shape[1]):
@@ -128,7 +144,7 @@ class CWFA_AO(nn.Module):
         return
 
 def train(model, device, train_loader, optimizer):
-    model.train()
+    #model.train()
     error = []
     #optimizer.zero_grad()
     for batch_idx, (action, obs, target) in enumerate(train_loader):
@@ -161,6 +177,17 @@ def vali(hankel, device, test_loader):
     # print('Test set: Average loss: {:.4f}'.format(
     #     test_loss))
     return test_loss
+
+def tp (train, scheduler, options):
+    train_loss_tt = []
+    validate_loss_tt = []
+    for epoch in range(1, options.epochs + 1):
+        train()
+        if options['verbose']:
+            print()
+        scheduler.step()
+
+    return train_loss_tt, validate_loss_tt
 
 def Training_process(model, training_generator, validation_generator, scheduler, optimizer, epochs, device = 'cpu', verbose = False):
     train_loss_tt = []
@@ -197,11 +224,11 @@ if __name__ == '__main__':
                   'num_trajs': 1000,
                   'max_episode_length': 10}
     sampling_params_train = {'env': gym.make(env_name),
-                             'num_trajs': 10000,
-                             'max_episode_length': 10}
+                             'num_trajs': 1000,
+                             'max_episode_length': 100}
     sampling_params_vali = {'env': gym.make(env_name),
                             'num_trajs': 100,
-                            'max_episode_length': 10}
+                            'max_episode_length': 100}
     if not load_kde:
         kde_l, kde_2l, kde_2l1 = get_all_kdes(kde_params, L)
         pickle.dump(kde_l, open('kde_l' + env_name, 'wb'))

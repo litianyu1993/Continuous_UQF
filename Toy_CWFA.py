@@ -1,6 +1,6 @@
 from CWFA_AO import CWFA_AO
 import numpy as np
-from dataset import  Dataset
+from Dataset import  Dataset
 import tensorly as tl
 from Getting_Hankels import get_data_generator, construct_all_hankels
 L = 2
@@ -8,17 +8,21 @@ load_kde = True
 lr = 0.01
 epochs = 1000
 
-generator_params = {'batch_size': 512,
-                    'shuffle': True,
-                    'num_workers': 0}
-Hankel_params = {'rank': 5,
-                 'encoded_dim_action': 3,
-                 'encoded_dim_obs': 3,
-                 'hidden_units_action': [3],
-                 'hidden_units_obs': [3],
-                 'seed': 0,
-                 'device': 'cpu',
-                 'rescale': False}
+generator_params = {
+    'batch_size': 512,
+    'shuffle': True,
+    'num_workers': 0
+}
+Hankel_params = {
+    'rank': 5,
+    'encoded_dim_action': 3,
+    'encoded_dim_obs': 3,
+    'hidden_units_action': [3],
+    'hidden_units_obs': [3],
+    'seed': 0,
+    'device': 'cpu',
+    'rescale': False
+}
 scheduler_params = {
     'step_size': 500,
     'gamma': 0.5
@@ -35,6 +39,7 @@ cwfa = CWFA_AO(alpha, A, Omega*10)
 L_vec = [L, 2*L, 2*L+1]
 train_generators = {}
 vali_generators = {}
+
 for T in L_vec:
     N = 10000
     act = np.random.rand(N, T, D)
@@ -59,5 +64,14 @@ for T in L_vec:
         label = '2l1'
     train_generators[label] = train_gen
     vali_generators[label] = vali_gen
-hankel_l, hankel_2l, hankel_2l1 = construct_all_hankels(L, lr, epochs, {'l':train_data}, train_generators, vali_generators, Hankel_params,
-                                                            scheduler_params)
+
+hankel_l, hankel_2l, hankel_2l1 = construct_all_hankels(
+    L,
+    lr,
+    epochs,
+    {'l':train_data},
+    train_generators,
+    vali_generators,
+    Hankel_params,
+    scheduler_params
+)

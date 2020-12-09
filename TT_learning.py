@@ -328,29 +328,16 @@ def TT_spectral_learning(H_2l_cores, H_2l1_cores, H_l_cores):
     l = len(H_l_cores)
     P_cores, S_cores = TT_factorisation_pinv(H_2l_cores,l)
 
-    # compute alpha
-    # for i in range(len(H_l_cores)):
-    #     print('hl',H_l_cores[i].shape)
-    # for i in range(len(S_cores)):
-    #     print('score', S_cores[i].shape)
     alpha = TT_product(H_l_cores,S_cores)
-    # print('alpha', alpha.shape)
-    # compute A
     A_left = TT_product(H_2l1_cores[:l],P_cores)
     A_right = TT_product(H_2l1_cores[l+1:],S_cores)
-    #print(P_cores)
-    #print(S_cores)
     A = np.tensordot(A_left,H_2l1_cores[l],(2,0))
     A = np.tensordot(A,A_right,(4,0))
 
     # compute  omega
     omega = TT_product(H_l_cores,P_cores)
-    # print('here', omega.shape)
-    # omega = np.tensordot(omega,H_l_cores[len(P_cores)],(2,0))
-    # print('here', omega.shape)
 
 
-    #model = LinRNN(alpha.squeeze(), A.squeeze(), omega.squeeze())
     return alpha.squeeze(), A.squeeze(), omega.squeeze()
 
 
