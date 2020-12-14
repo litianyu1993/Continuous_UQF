@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import StepLR
+from torch import optim
 
 def train(model, device, train_loader, optimizer):
     error = []
@@ -15,7 +17,7 @@ def train(model, device, train_loader, optimizer):
         optimizer.step()
         error.append(loss.item())
         #print(model.action_encoder.encoder[0].weight)
-    print(output[0], target[0])
+    #print(output[0], target[0])
 
     return sum(error) / len(error)
 
@@ -29,7 +31,8 @@ def validate(model, device, test_loader):
             x = [action, obs]
             output = model(x).to(device)
             test_loss += F.mse_loss(output, target).item()  # sum up batch loss
-
+    # print(output[:5])
+    # print(target[:5])
     test_loss /= len(test_loader)
 
     return test_loss
@@ -46,12 +49,31 @@ def train_validate (model, train_lambda, validate_lambda, scheduler, option):
         train_loss = train_lambda(model)
         validate_loss = validate_lambda(model)
         if option['verbose']:
-            print('Epoch: '+str(epoch)+' Train Error: {:.4f} Validate Error: {:.4f}'.format(train_loss, validate_loss))
+            print('Epoch: '+str(epoch)+'Train Error: {:.4f} Validate Error: {:.4f}'.format(train_loss, validate_loss))
         scheduler.step()
         train_loss_vec.append(train_loss)
         validate_loss_vec.append(validate_loss)
-        # print(model.action_encoder.encoder[0].weight)
-        # print(model.obs_encoder.encoder[0].weight)
-        # print(model.mps[0])
 
     return train_loss_vec, validate_loss_vec
+
+def fit(model, train_lambda, validate_lambda, **option):
+    option_default = {
+        'step_size': 500,
+        'gamma': 0.1,
+        'epochs': 1000,
+        'verbose': True,
+        'optimizer': optim.Adam(model.parameters(), lr=0.001, amsgrad=True),
+    }
+    option = {**option_default, **option}
+
+    scheduler_params = {
+        'step_size': option['step_size'],
+        'gamma': option['gamma']
+    }
+    train_option = {
+        'epochs': option['epochs'],
+        'verbose': option['verbose']
+    }
+    scheduler = StepLR(option['optimizer'], **scheduler_params)
+    model.fit(train_lambda, validate_lambda, scheduler, **train_option)
+    return model

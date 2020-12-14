@@ -6,6 +6,7 @@ import copy
 from torch import nn
 import gym
 import pickle
+from Encoder_FC import Encoder_FC
 from torch.optim.lr_scheduler import StepLR
 from Learning_CWFA_AO import CWFA_AO, train, vali, Training_process
 
@@ -51,12 +52,13 @@ class Decoder_FC(nn.Module):
     def __init__(self, encoder_FC, device = 'cpu'):
         super(Decoder_FC, self).__init__()
         self.device = device
-        self.encoder = encoder_FC
+        self.encoder = encoder_FC.encoder
         self.Decoder = []
         for i in range(len(self.encoder)):
             self.Decoder.append(nn.Linear(self.encoder[-i-1].weight.shape[0], self.encoder[-i-1].weight.shape[1]).to(self.device))
 
         self.input_dim = self.encoder[-1].weight.shape[1]
+        self.out_dim = self.encoder[0].weight.shape[0]
         self._get_params()
     def _rescale(self, w):
         size = 1
@@ -133,65 +135,81 @@ def Training_process(model, training_generator, validation_generator, scheduler,
         scheduler.step()
     return model, train_loss_tt, vali_loss_tt
 
+def get_decoder(encoder, **option):
+    option_default = {
+        'sample_size_train': 10000,
+        'sample_size_vali': 1000,
+        'lr': 0.001,
+        'epochs': 1000,
+        'gamma': 1,
+        'step_size':500,
+        'batch_size': 256
+    }
+    option = {**option_default, **option}
 
-if __name__ == '__main__':
-    L = 2
-    load_kde = True
-    env_name = 'Pendulum-v0'
-    lr = 0.01
-    epochs = 2000
-    generator_params = {'batch_size': 1024,
+    generator_params = {'batch_size': option['batch_size'],
                         'shuffle': True,
                         'num_workers': 0}
-    kde_params = {'env': gym.make(env_name),
-                  'num_trajs': 1000,
-                  'max_episode_length': 10}
 
-    cwfa_params = {'rank': 30,
-                   'dim_a': 3,
-                   'dim_o': 4,
-                   'encode_a_dim': 10,
-                   'encode_o_dim': 10,
-                   'out_dim': 1,
-                   'action_hidden': [10],
-                   'obs_hidden':[10],
-                   'device': 'cpu'}
-    scheduler_params = {
-        'step_size': 500,
-        'gamma': 1
-    }
-    N = 1000
-    cwfa = CWFA_AO(**cwfa_params)
-    decoder = Decoder_FC(cwfa.action_encoder)
-    y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
-    x = encoding(y, cwfa.action_encoder).detach()
-    #x = y + 1
-    dataset = Dataset(data = [x, y])
+    decoder = Decoder_FC(encoder)
+    Y = torch.normal(0, 1, [option['sample_size_train'], encoder.input_dim])
+    #print(Y.shape, encoder.input_dim)
+    X = encoder(Y).detach()
+    dataset = Dataset(data=[X, Y])
     train_generator = torch.utils.data.DataLoader(dataset, **generator_params)
 
-    N = 1000
-    y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
-    x = encoding(y, cwfa.action_encoder).detach()
-    dataset = Dataset(data=[x, y])
+    Y = torch.normal(0, 1, [option['sample_size_vali'], encoder.input_dim])
+    X = encoder(Y).detach()
+    dataset = Dataset(data=[X, Y])
     vali_generator = torch.utils.data.DataLoader(dataset, **generator_params)
 
+    optimizer = optim.Adam(decoder.parameters(), lr=option['lr'], amsgrad=True)
+    scheduler = StepLR(optimizer, **{'step_size': option['step_size'], 'gamma': option['gamma']})
+    decoder, train_loss_tt, vali_loss_tt = Training_process(decoder, train_generator, vali_generator, scheduler,
+                                                            optimizer,
+                                                            option['epochs'], device='cpu',
+                                                            verbose=True)
+    return decoder
 
 
 
+if __name__ == '__main__':
+    rank = 5
+    input_dim = 3
+    encoded_dim = 5
+    hidden_units = [5]
 
-    optimizer = optim.Adam(decoder.parameters(), lr=lr, amsgrad=True)
-    scheduler = StepLR(optimizer, **scheduler_params)
-    decoder, train_loss_tt, vali_loss_tt = Training_process(decoder, train_generator, vali_generator, scheduler, optimizer,
-                                                         epochs, device='cpu',
-                                                         verbose=True)
+    action_encoder = Encoder_FC(input_dim=input_dim, encoded_dim=encoded_dim, hidden_units=hidden_units, device='cpu',
+                                seed=0, init_encoder=None)
+    print(action_encoder.input_dim)
+    decoder = get_decoder(action_encoder)
+    # decoder = Decoder_FC(cwfa.action_encoder)
+    # y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
+    # x = encoding(y, cwfa.action_encoder).detach()
+    # #x = y + 1
+    # dataset = Dataset(data = [x, y])
+    # train_generator = torch.utils.data.DataLoader(dataset, **generator_params)
+    #
+    # N = 1000
+    # y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
+    # x = encoding(y, cwfa.action_encoder).detach()
+    # dataset = Dataset(data=[x, y])
+    # vali_generator = torch.utils.data.DataLoader(dataset, **generator_params)
+    #
+    #
+    # optimizer = optim.Adam(decoder.parameters(), lr=lr, amsgrad=True)
+    # scheduler = StepLR(optimizer, **scheduler_params)
+    # decoder, train_loss_tt, vali_loss_tt = Training_process(decoder, train_generator, vali_generator, scheduler, optimizer,
+    #                                                      epochs, device='cpu',
+    #                                                      verbose=True)
 
-    N = 1000
-    y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
-    x = encoding(y, cwfa.action_encoder).detach()
-    print(x.shape, y.shape)
-    from sklearn.linear_model import LinearRegression
-
-    reg = LinearRegression().fit(x.numpy(), y.numpy())
-    pred = reg.predict(x).reshape(y.numpy().shape)
-    print(np.mean((pred - y.numpy())**2))
+    # N = 1000
+    # y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
+    # x = encoding(y, action_encoder).detach()
+    # print(x.shape, y.shape)
+    # from sklearn.linear_model import LinearRegression
+    #
+    # reg = LinearRegression().fit(x.numpy(), y.numpy())
+    # pred = reg.predict(x).reshape(y.numpy().shape)
+    # print(np.mean((pred - y.numpy())**2))
 

@@ -20,6 +20,8 @@ class Encoder_FC(nn.Module):
             self.encoder = init_encoder
         else:
             self.encoder = self.init_FC_encoder(hidden_units, input_dim, encoded_dim)
+        self.input_dim = input_dim
+        self.out_dim = self.encoder[-1].weight.shape[1]
 
     def init_FC_encoder(self, hidden_units, input_dim, encoded_dim):
         encoder = []

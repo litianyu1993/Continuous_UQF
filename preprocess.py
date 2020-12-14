@@ -5,6 +5,7 @@ import numpy as np
 import tensorly as tl
 from Dataset import Dataset_Action_Obs_Y as Dataset
 import torch
+import pickle
 # Specifying hyper-parameters
 
 def sliding_window(action_obs, rewards, window_size, action_all, obs_all):
@@ -41,6 +42,27 @@ def construct_KDE(**option):
     else:
         _, _, x, _ = generate_data(**option)
     kde = KDE.Compute_KDE(x.reshape(x.shape[0], -1))
+    return kde
+
+def get_kde(**kde_option):
+    kde_option_default = {
+        'env': gym.make('Pendulum-v0'),
+        'num_trajs': 100,
+        'max_episode_length': 10,
+        'window_size': 5,
+        'load_kde': False
+    }
+    kde_option = {**kde_option_default, **kde_option}
+    kde_address =  kde_option['env'].unwrapped.spec.id + ' ' +str(kde_option['window_size'])
+    if kde_option['load_kde']:
+        f = open(kde_address, "rb")
+        kde = pickle.load(f)
+        f.close()
+    else:
+        kde = construct_KDE(**kde_option)
+        f = open(kde_address, "wb")
+        pickle.dump(kde, f)
+        f.close()
     return kde
 
 def get_dataset(kde, **option):
@@ -97,6 +119,34 @@ def normalize(x):
 def construct_PR_target(kde, x, rewards):
     logprob = np.asarray(KDE.compute_score(kde, x.reshape(x.shape[0], -1)))
     return np.multiply(logprob, rewards)
+
+def get_data_loaders(kde, batch_size = 256, **option_list):
+
+    option_list_default = {
+        'train_gen_option': {
+            'env': gym.make('Pendulum-v0'),
+            'num_trajs': 1000,
+            'max_episode_length': 100,
+            'window_size': 5
+        },
+        'validate_gen_option':{
+            'env': gym.make('Pendulum-v0'),
+            'num_trajs': 1000,
+            'max_episode_length': 10,
+            'window_size': 5
+        }
+    }
+    option_list = {**option_list_default, **option_list}
+    train_gen_option = option_list['train_gen_option']
+    validate_gen_option = option_list['validate_gen_option']
+
+    train_dataset = get_dataset(kde, **train_gen_option)
+    train_loader = get_data_generator(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+    validate_dataset = get_dataset(kde, **validate_gen_option)
+    validate_loader = get_data_generator(validate_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+    return train_dataset, train_loader, validate_dataset, validate_loader
 
 if __name__ == '__main__':
     options = {

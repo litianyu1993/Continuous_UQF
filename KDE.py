@@ -4,6 +4,7 @@ from sklearn.neighbors import KernelDensity
 from matplotlib import pyplot as plt
 from sklearn.model_selection import GridSearchCV, KFold
 import gym
+import pickle
 env = gym.make('Pendulum-v0')
 num_trajs = 1000
 max_traj_length = 10
@@ -33,6 +34,8 @@ def compute_prob(kde, x):
         scores.append(np.exp(kde.score(x[i].reshape(1, -1))))
     return scores
 
+
+
 def simple_test_KDE():
     option = {
         'num_trajs': 1000,
@@ -53,6 +56,11 @@ def simple_test_KDE():
     logprob = compute_score(kde, x_test)
     print(logprob)
 
+def load_kde(kde_address):
+    f = open(kde_address, "rb")
+    kde = pickle.load(f)
+    f.close()
+    return kde
 if __name__ == '__main__':
     simple_test_KDE()
 

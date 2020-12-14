@@ -11,7 +11,10 @@ def get_trajectories(**option):
         'agent': random_agent,
         'env': gym.make('Pendulum-v0'),
         'num_trajs': 100,
-        'max_episode_length': 100
+        'max_episode_length': 100,
+        'uqf': None,
+        'next_A': None,
+        'decoder': None
     }
     option = {**option_default, **option}
     observation_all = []
@@ -24,7 +27,12 @@ def get_trajectories(**option):
         action_epi = []
         for t in range(option['max_episode_length']):
             #env.render()
-            action = option['agent'](option['env'], observation)
+            if option['uqf'] is not None:
+                history = [action_epi, obs_epi]
+                from acting import UQF_agent
+                action = UQF_agent(option['uqf'], option['next_A'], option['decoder'], history, **option)
+            else:
+                action = option['agent'](option['env'], observation)
             #print(action)
             observation, reward, done, info = option['env'].step(action)
             obs_epi.append(observation)
