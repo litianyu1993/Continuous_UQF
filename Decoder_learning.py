@@ -6,9 +6,7 @@ import copy
 from torch import nn
 import gym
 import pickle
-from Encoder_FC import Encoder_FC
 from torch.optim.lr_scheduler import StepLR
-from Learning_CWFA_AO import CWFA_AO, train, vali, Training_process
 
 class Dataset(torch.utils.data.Dataset):
     'Characterizes a dataset for PyTorch'
@@ -173,16 +171,16 @@ def get_decoder(encoder, **option):
 
 
 
-if __name__ == '__main__':
-    rank = 5
-    input_dim = 3
-    encoded_dim = 5
-    hidden_units = [5]
-
-    action_encoder = Encoder_FC(input_dim=input_dim, encoded_dim=encoded_dim, hidden_units=hidden_units, device='cpu',
-                                seed=0, init_encoder=None)
-    print(action_encoder.input_dim)
-    decoder = get_decoder(action_encoder)
+# if __name__ == '__main__':
+    # rank = 5
+    # input_dim = 3
+    # encoded_dim = 5
+    # hidden_units = [5]
+    #
+    # # action_encoder = Encoder_FC(input_dim=input_dim, encoded_dim=encoded_dim, hidden_units=hidden_units, device='cpu',
+    # #                             seed=0, init_encoder=None)
+    # print(action_encoder.input_dim)
+    # decoder = get_decoder(action_encoder)
     # decoder = Decoder_FC(cwfa.action_encoder)
     # y = torch.tensor(np.random.normal(0, 1, [N, 3])).float()
     # x = encoding(y, cwfa.action_encoder).detach()

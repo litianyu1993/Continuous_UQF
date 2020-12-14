@@ -88,7 +88,9 @@ if __name__ == '__main__':
         'decoder': None
     }
     observation_all, reward_all, action_all = get_trajectories(**sampling_option)
-    print(reward_all)
+    #print(reward_all)
     reward_all = reward_all.reshape(reward_all.shape[0], -1)
-    print(np.sum(reward_all, axis = 1))
+    sum_rewards = np.sum(reward_all, axis = 1)
+    mean_sum_rewards = np.mean(sum_rewards)
+    print('Average sum rewards: ' + str(mean_sum_rewards))
     #print(np.mean(reward_all, axis = 1))
