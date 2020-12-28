@@ -24,7 +24,7 @@ if __name__ == '__main__':
             'window_size': window_size},
         'validate_gen_option': {
             'env': env,
-            'num_trajs': 1000,
+            'num_trajs': 100,
             'max_episode_length': 10,
             'window_size': window_size},
 

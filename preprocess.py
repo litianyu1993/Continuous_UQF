@@ -117,7 +117,11 @@ def normalize(x):
     return new_x.reshape(ori_shape)
 
 def construct_PR_target(kde, x, rewards):
-    logprob = np.asarray(KDE.compute_score(kde, x.reshape(x.shape[0], -1)))
+    x =  x.reshape(x.shape[0], -1)
+    logprob = []
+    for i in range(len(x)):
+        logprob = np.asarray(KDE.compute_score(kde, x[i].reshape(1, -1)))
+    logprob = np.asarray(logprob).reshape(-1, )
     return np.multiply(logprob, rewards)
 
 def get_data_loaders(kde, batch_size = 256, **option_list):
