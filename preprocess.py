@@ -13,6 +13,10 @@ def sliding_window(action_obs, rewards, window_size, action_all, obs_all):
     windowed_rewards = []
     windowed_action = []
     windowed_obs = []
+    if action_all.ndim == 2:
+        action_all = np.expand_dims(action_all, axis= 2)
+    if obs_all.ndim == 2:
+        obs_all = np.expand_dims(obs_all, axis= 2)
     assert action_obs.shape[1] == rewards.shape[1]
     for j in range(action_obs.shape[0]):
         i = 0
@@ -53,7 +57,8 @@ def get_kde(**kde_option):
         'load_kde': False
     }
     kde_option = {**kde_option_default, **kde_option}
-    kde_address =  kde_option['env'].unwrapped.spec.id + ' ' +str(kde_option['window_size'])
+    # kde_address =  kde_option['env'].unwrapped.spec.id + ' ' +str(kde_option['window_size'])
+    kde_address = ' ' + str(kde_option['window_size'])
     if kde_option['load_kde']:
         f = open(kde_address, "rb")
         kde = pickle.load(f)
@@ -65,17 +70,32 @@ def get_kde(**kde_option):
         f.close()
     return kde
 
-def get_dataset(kde, **option):
+def get_dataset(**option):
 
     option_default = {
         'env': gym.make('Pendulum-v0'),
         'num_trajs': 1000,
         'max_episode_length': 10,
-        'window_size':5}
+        'window_size':5,
+        'kde' : None
+    }
     option = {**option_default, **option}
 
     action_all_pr, observation_all_pr, x_pr, new_rewards_pr = generate_data(**option)
-    pr = construct_PR_target(kde, x_pr, new_rewards_pr)
+    if option['kde'] is not None:
+        x =  x_pr.reshape(x_pr.shape[0], -1)
+        logprob = []
+        for i in range(len(x)):
+            logprob.append(np.exp(KDE.compute_score(option['kde'], x[i].reshape(1, -1))))
+        logprob = np.asarray(logprob)
+        #logprob = logprob /(np.max(logprob) - np.min(logprob))
+    elif hasattr(option['env'], 'compute_log_likelihood'):
+        logprob = option['env'].compute_log_likelihood(action_all_pr, observation_all_pr)
+
+    pr = construct_PR_target(new_rewards_pr, logprob)
+
+    print(action_all_pr.shape, observation_all_pr.shape, pr.shape)
+
     tl.set_backend('pytorch')
     new_data = Dataset(data=[tl.tensor(action_all_pr).float(), tl.tensor(observation_all_pr).float(), tl.tensor(pr).float()])
 
@@ -103,7 +123,7 @@ def generate_data(**option):
     option.pop('window_size', None)
     observations, rewards, actions = get_trajectories(**option)
     'Need to change this in the future for other environments'
-    #reward_all += 17 #Make reward positive
+    rewards += 17 #Make reward positive
 
     action_obs = KDE.combine_obs_action(observations, actions)
     x, new_rewards, actions_new, obss_new = sliding_window(action_obs, rewards, window_size, actions, observations)
@@ -116,34 +136,40 @@ def normalize(x):
     new_x = (new_x - np.mean(new_x, axis = 0))/np.std(new_x, axis=0)
     return new_x.reshape(ori_shape)
 
-def construct_PR_target(kde, x, rewards):
-    logprob = np.asarray(KDE.compute_score(kde, x.reshape(x.shape[0], -1)))
+def construct_PR_target(rewards, logprob):
+    #logprob = np.asarray(KDE.compute_score(kde, x.reshape(x.shape[0], -1)))
+    #print(logprob.shape, rewards.shape)
+    logprob = logprob.squeeze()
+    rewards = rewards.squeeze()
+
     return np.multiply(logprob, rewards)
 
-def get_data_loaders(kde, batch_size = 256, **option_list):
+def get_data_loaders(batch_size = 256, **option_list):
 
     option_list_default = {
         'train_gen_option': {
             'env': gym.make('Pendulum-v0'),
             'num_trajs': 1000,
             'max_episode_length': 100,
-            'window_size': 5
+            'window_size': 5,
+            'kde': None
         },
         'validate_gen_option':{
             'env': gym.make('Pendulum-v0'),
             'num_trajs': 1000,
             'max_episode_length': 10,
-            'window_size': 5
+            'window_size': 5,
+            'kde': None
         }
     }
     option_list = {**option_list_default, **option_list}
-    train_gen_option = option_list['train_gen_option']
-    validate_gen_option = option_list['validate_gen_option']
+    train_gen_option = {**option_list_default['train_gen_option'], **option_list['train_gen_option']}
+    validate_gen_option = {**option_list_default['validate_gen_option'], **option_list['validate_gen_option']}
 
-    train_dataset = get_dataset(kde, **train_gen_option)
+    train_dataset = get_dataset(**train_gen_option)
     train_loader = get_data_generator(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
-    validate_dataset = get_dataset(kde, **validate_gen_option)
+    validate_dataset = get_dataset(**validate_gen_option)
     validate_loader = get_data_generator(validate_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
     return train_dataset, train_loader, validate_dataset, validate_loader
@@ -159,6 +185,7 @@ if __name__ == '__main__':
     print('Start constructing kde')
     observation_all, action_all, x, new_rewards = generate_data(**options)
     kde_test = construct_KDE(**{'x':x})
+    options['kde'] = kde_test
     print('Finish constructing kde')
 
     'Generating PR data'
@@ -166,7 +193,12 @@ if __name__ == '__main__':
 
     observation_all_pr, action_all_pr, x_pr, new_rewards_pr = generate_data(**options)
 
-    pr = construct_PR_target(kde_test, x_pr, new_rewards_pr)
+    if options['kde'] is not None:
+        logprob = np.asarray(KDE.compute_score(options['kde'], x.reshape(x.shape[0], -1)))
+    elif hasattr(options['env'], 'compute_log_likelihood'):
+        logprob = options['env'].compute_log_likelihood(action_all_pr, observation_all_pr)
+
+    pr = construct_PR_target(new_rewards_pr, logprob)
     print(pr[:5],new_rewards_pr[:5],  x_pr.shape, action_all_pr.shape, observation_all_pr.shape)
 
 

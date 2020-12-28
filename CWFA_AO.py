@@ -34,6 +34,7 @@ class CWFA_AO(nn.Module):
             self.alpha = alpha
             self.A = A
             self.Omega = Omega
+
             self.rank = self.A.shape[0]
             self.action_in_dim = action_encoder.out_dim
             self.obs_in_dim = obs_encoder.out_dim
@@ -159,13 +160,21 @@ def learn_CWFA(**option_list):
     cwfa_option = option_list['cwfa_option']
     fit_option = option_list['fit_option']
 
-    kde = get_kde(**kde_option)
-
     gen_options = {
         'train_gen_option': train_gen_option,
         'validate_gen_option': validate_gen_option
     }
-    train_dataset, train_loader, validate_dataset, validate_loader = get_data_loaders(kde, batch_size=256, **gen_options)
+
+    if kde_option['use_kde']:
+        kde = get_kde(**kde_option)
+        gen_options['train_gen_option']['kde'] = kde
+        gen_options['validate_gen_option']['kde'] = kde
+    else:
+        gen_options['train_gen_option']['kde'] = None
+        gen_options['validate_gen_option']['kde'] = None
+
+
+    train_dataset, train_loader, validate_dataset, validate_loader = get_data_loaders(batch_size=256, **gen_options)
 
     action_encoder_option['input_dim'] = train_dataset.action.shape[2]
     obs_encoder_option['input_dim'] = train_dataset.obs.shape[2]
@@ -189,7 +198,8 @@ if __name__ == '__main__':
             'num_trajs': 100,
             'max_episode_length': 10,
             'window_size': window_size,
-            'load_kde': True
+            'load_kde': True,
+            'use_kde': True
         },
         'train_gen_option': {
             'env': gym.make('Pendulum-v0'),

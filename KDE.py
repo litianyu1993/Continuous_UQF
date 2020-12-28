@@ -10,6 +10,12 @@ num_trajs = 1000
 max_traj_length = 10
 
 def combine_obs_action(observations, actions):
+    #print(actions.shape, observations.shape)
+    if actions.ndim == 2:
+        actions = np.expand_dims(actions, axis= 2)
+    if observations.ndim == 2:
+        observations = np.expand_dims(observations, axis= 2)
+    #print(actions.shape, observations.shape)
     return np.concatenate((actions, observations), axis = 2)
 
 def normalize(x):
@@ -36,11 +42,12 @@ def compute_prob(kde, x):
 
 
 
-def simple_test_KDE():
-    option = {
+def simple_test_KDE(**option):
+    option_default = {
         'num_trajs': 1000,
         'max_episode_length': 10
     }
+    option = {**option_default, **option}
     observation_all, reward_all, action_all = get_trajectories(**option)
 
     action_obs = combine_obs_action(observation_all, action_all)

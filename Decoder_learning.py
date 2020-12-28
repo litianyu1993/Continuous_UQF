@@ -50,13 +50,13 @@ class Decoder_FC(nn.Module):
     def __init__(self, encoder_FC, device = 'cpu'):
         super(Decoder_FC, self).__init__()
         self.device = device
-        self.encoder = encoder_FC.encoder
+        self.encoder = encoder_FC
         self.Decoder = []
-        for i in range(len(self.encoder)):
-            self.Decoder.append(nn.Linear(self.encoder[-i-1].weight.shape[0], self.encoder[-i-1].weight.shape[1]).to(self.device))
+        for i in range(len(self.encoder.encoder)):
+            self.Decoder.append(nn.Linear(self.encoder.encoder[-i-1].weight.shape[0], self.encoder.encoder[-i-1].weight.shape[1]).to(self.device))
 
-        self.input_dim = self.encoder[-1].weight.shape[1]
-        self.out_dim = self.encoder[0].weight.shape[0]
+        self.input_dim = self.encoder.encoder[-1].weight.shape[1]
+        self.out_dim = self.encoder.encoder[0].weight.shape[0]
         self._get_params()
     def _rescale(self, w):
         size = 1
@@ -67,12 +67,9 @@ class Decoder_FC(nn.Module):
         if not torch.is_tensor(x):
             x = torch.tensor(x)
         x = x.float()
-        #x = F.sigmoid(self.Decoder(x))
         for i in range(len(self.Decoder)):
-            #print(x.shape, self.Decoder[i].weight.shape)
             x = self.Decoder[i](x)
-            if not i == len(self.Decoder) - 1:
-                x = F.sigmoid(x)
+            x = self.encoder.inner_activation(x)
         return x
     def _get_params(self):
         self.params = nn.ParameterList([])

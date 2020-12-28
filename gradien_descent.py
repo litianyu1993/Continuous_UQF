@@ -12,12 +12,13 @@ def train(model, device, train_loader, optimizer):
         optimizer.zero_grad()
         output = model(x).to(device)
         #print(output.shape, target.shape)
-        loss = F.mse_loss(output, target)
+        #loss = F.mse_loss(output, target)
+        loss = log_mse(output, target)
         loss.backward()
         optimizer.step()
         error.append(loss.item())
         #print(model.action_encoder.encoder[0].weight)
-    #print(output[0], target[0])
+    print(output[0], target[0])
 
     return sum(error) / len(error)
 
@@ -30,12 +31,18 @@ def validate(model, device, test_loader):
             action, obs, target = x[0].to(device), x[1].to(device), target.to(device)
             x = [action, obs]
             output = model(x).to(device)
-            test_loss += F.mse_loss(output, target).item()  # sum up batch loss
+            #test_loss += F.mse_loss(output, target).item()  # sum up batch loss
+            test_loss += log_mse(output, target).item()
     # print(output[:5])
     # print(target[:5])
     test_loss /= len(test_loader)
 
     return test_loss
+
+def log_mse(output, target):
+    loss = torch.log(torch.mean((output - target)**2))
+    return loss
+
 
 def train_validate (model, train_lambda, validate_lambda, scheduler, option):
     option_default = {

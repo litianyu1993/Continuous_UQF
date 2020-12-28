@@ -44,8 +44,11 @@ def UQF_agent(uqf, next_A, decoder, history, **option):
     }
     option = {**option_default, **option}
     planning_vec = uqf.planning(history, next_A).detach().numpy().ravel()
+
     best_a_encoded = linprog(-planning_vec, bounds=option['range']).x
+    print(planning_vec, best_a_encoded)
     best_a = decoder(best_a_encoded)
+
     return best_a
 
 

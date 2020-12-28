@@ -51,8 +51,11 @@ if __name__ == '__main__':
     option = {
         'agent': random_agent,
         'env': gym.make('Pendulum-v0'),
-        'num_trajs': 100,
+        'num_trajs': 1000,
         'max_episode_length': 100
     }
     observation_all, reward_all, action_all = get_trajectories(**option)
     print(observation_all.shape)
+    sum_rewards = np.sum(reward_all, axis=1)
+    mean_sum_rewards = np.mean(sum_rewards)
+    print('Average sum rewards: ' + str(mean_sum_rewards))
