@@ -8,6 +8,10 @@ from torch import optim
 from preprocess import get_kde, get_data_loaders
 from Encoder import Encoder
 
+def normalize_weights(W):
+    size = torch.numel(W) ** (1/len(W.shape))
+    return W/size
+
 class CWFA_AO(nn.Module):
 
     def __init__(self, action_encoder, obs_encoder, **option):
@@ -85,6 +89,7 @@ class CWFA_AO(nn.Module):
             tmp = torch.einsum('ni, ijkl, nj, nk -> nl', tmp, self.A, act_seq[:, i, :], obs_seq[:, i, :])
         #print(tmp.shape, self.Omega.shape)
         tmp = torch.einsum('ni, im-> nm', tmp, self.Omega)
+        #tmp = torch.abs(tmp)
         return tmp.squeeze()
 
     def planning(self, x, next_A):
@@ -206,7 +211,7 @@ if __name__ == '__main__':
             'random_init': True,
             'rank': 20,
             'device': 'cpu',
-            'init_std': 0.1,
+            'init_std': 1,
             'out_dim':1
         },
         'action_encoder_option': {
