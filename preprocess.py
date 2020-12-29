@@ -103,7 +103,8 @@ def generate_data(**option):
     option.pop('window_size', None)
     observations, rewards, actions = get_trajectories(**option)
     'Need to change this in the future for other environments'
-    #reward_all += 17 #Make reward positive
+    if option['env'].unwrapped.spec.id == 'Pendulum-v0':
+        rewards += 17 #Make reward positive
 
     action_obs = KDE.combine_obs_action(observations, actions)
     x, new_rewards, actions_new, obss_new = sliding_window(action_obs, rewards, window_size, actions, observations)
@@ -121,6 +122,7 @@ def construct_PR_target(kde, x, rewards):
     logprob = []
     for i in range(len(x)):
         logprob = np.asarray(KDE.compute_score(kde, x[i].reshape(1, -1)))
+        logprob = np.exp(logprob)
     logprob = np.asarray(logprob).reshape(-1, )
     return np.multiply(logprob, rewards)
 
