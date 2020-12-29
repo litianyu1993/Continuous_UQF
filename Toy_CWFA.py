@@ -1,77 +1,69 @@
-from CWFA_AO import CWFA_AO
+import gym
+from gym import spaces
 import numpy as np
-from Dataset import  Dataset
-import tensorly as tl
-from Getting_Hankels import get_data_generator, construct_all_hankels
-L = 2
-load_kde = True
-lr = 0.01
-epochs = 1000
+from sample_trajectories import random_agent
+from preprocess import generate_data, construct_KDE
+from KDE import simple_test_KDE, compute_prob, compute_score
+import scipy.stats
+class CustomEnv(gym.Env):
+    """Custom Environment that follows gym interface"""
+    metadata = {'render.modes': ['human']}
 
-generator_params = {
-    'batch_size': 512,
-    'shuffle': True,
-    'num_workers': 0
-}
-Hankel_params = {
-    'rank': 5,
-    'encoded_dim_action': 3,
-    'encoded_dim_obs': 3,
-    'hidden_units_action': [3],
-    'hidden_units_obs': [3],
-    'seed': 0,
-    'device': 'cpu',
-    'rescale': False
-}
-scheduler_params = {
-    'step_size': 500,
-    'gamma': 0.5
-}
-rank = Hankel_params['rank']
+    def __init__(self):
+        super(CustomEnv, self).__init__()
+        # Define action and observation space
+        # They must be gym.spaces objects
+        # Example when using discrete actions:
+        self.action_space = spaces.Box(low = -1, high = 1, shape=[1])
+        # Example for using image as input:
+        self.observation_space = spaces.Box(low = -1, high = 1, shape=[1])
+        self.num_states = 2
+        self.mu = np.ones(self.num_states)/self.num_states
+        self.current_state = self.reset()
+        self.env_ID = 'toy_cpomdp_2states'
+        #self.unwrapped.spec.id = 'toy'
 
 
-D = 2
+    def step(self, action):
+        # Execute one time step within the environment
+        p = (action - self.action_space.low)/(self.action_space.high - self.action_space.low)
+        if self.current_state == 0:
+            if p > 1-p:
+                self.current_state = 0
+            else:
+                self.current_state = 1
+        else:
+            if p > 1 - p:
+                self.current_state = 1
+            else:
+                self.current_state = 0
+        o = np.random.normal(self.current_state, 1, 1)[0]
+        r = np.random.normal(self.current_state, 1, 1)[0]
+        info = None
+        done = False
+        return o, r, done, info
 
-alpha = np.random.rand(1, rank)*2 -1
-A = np.random.rand(rank, D, D, rank)*2-1
-Omega = np.random.rand(rank, 1)*2-1
-cwfa = CWFA_AO(alpha, A, Omega*10)
-L_vec = [L, 2*L, 2*L+1]
-train_generators = {}
-vali_generators = {}
+    def reset(self):
+        # Reset the state of the environment to an initial state
+        self.current_state = np.random.randint(0, self.num_states)
+        return np.random.normal(self.current_state, 1, 1)[0]
 
-for T in L_vec:
-    N = 10000
-    act = np.random.rand(N, T, D)
-    obs = np.random.rand(N, T, D)
-    Y = cwfa.predict(act, obs)
-    print(Y.shape)
-    tl.set_backend('pytorch')
-    train_data = Dataset(data=[tl.tensor(act).float(), tl.tensor(obs).float(), tl.tensor(Y).float()])
+    def compute_likelihood(self, actions_all, obss_all):
+        'actions, obss of shape: length * num_features'
+        all_likelihood = []
+        for i in range(len(actions_all)):
+            actions = actions_all[i]
+            obss = obss_all[i]
+            likelihood = np.asarray([0.5, 0.5])
+            for i in range(actions.shape[0]):
+                likelihood *= 0.5
 
-    N = 1000
-    act = np.random.rand(N, T, D)
-    obs = np.random.rand(N, T, D)
-    Y = cwfa.predict(act, obs)
-    vali_data = Dataset(data=[tl.tensor(act).float(), tl.tensor(obs).float(), tl.tensor(Y).float()])
-    train_gen = get_data_generator(dataset=train_data, **generator_params)
-    vali_gen = get_data_generator(dataset=vali_data, **generator_params)
-    if T == L:
-        label = 'l'
-    elif T == 2*L:
-        label = '2l'
-    else:
-        label = '2l1'
-    train_generators[label] = train_gen
-    vali_generators[label] = vali_gen
-
-hankel_l, hankel_2l, hankel_2l1 = construct_all_hankels(
-    L,
-    lr,
-    epochs,
-    {'l':train_data},
-    train_generators,
-    vali_generators,
-    Hankel_params,
-    scheduler_params
-)
+                p = (actions[i] - self.action_space.low) / (self.action_space.high - self.action_space.low)
+                #print(self.action_space.low, p)
+                T = np.asarray([[p, 1-p], [1-p, p]])
+                #print('here', likelihood.shape, T.shape)
+                likelihood = likelihood @ T
+                O = np.asarray([scipy.stats.norm(0, 1).pdf(obss[i]), scipy.stats.norm(1, 1).pdf(obss[i])])
+                likelihood = likelihood @ np.diag(O)
+            all_likelihood.append(np.sum(likelihood))
+        return all_likelihood
