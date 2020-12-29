@@ -13,9 +13,9 @@ if __name__ == '__main__':
         'kde_option': {
             'env': env,
             'num_trajs': 100,
-            'max_episode_length': 10,
+            'max_episode_length': 100,
             'window_size': window_size,
-            'load_kde': True
+            'load_kde': False
         },
         'train_gen_option': {
             'env': env,
@@ -24,13 +24,13 @@ if __name__ == '__main__':
             'window_size': window_size},
         'validate_gen_option': {
             'env': env,
-            'num_trajs': 100,
-            'max_episode_length': 10,
+            'num_trajs': 1000,
+            'max_episode_length': 100,
             'window_size': window_size},
 
         'cwfa_option': {
             'random_init': True,
-            'rank': 20,
+            'rank': 100,
             'device': 'cpu',
             'init_std': 0.1,
             'out_dim': 1
@@ -51,7 +51,7 @@ if __name__ == '__main__':
             'epochs': 1000,
             'verbose': True,
             'lr': 0.001,
-            'step_size': 500,
+            'step_size': 100,
             'gamma': 0.1
         }
     }

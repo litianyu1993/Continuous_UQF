@@ -4,6 +4,19 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import StepLR
 from torch import optim
 
+def log_mse(output, target):
+    loss = torch.log(torch.mean((output - target) ** 2))
+    #loss = torch.log(torch.mean((torch.log(output) - torch.log(target)) ** 2))
+    return loss
+
+def MAPE(output, target):
+    loss = torch.mean(torch.abs(target - output)/target)
+    # print(torch.abs(target - output)[:5], target.shape)
+    #print(torch.mean(torch.abs(target - output)/target))
+    #print(torch.abs(output - target)[0], torch.abs(target)[0], output[0], target[0])
+    return loss
+
+
 def train(model, device, train_loader, optimizer):
     error = []
     for batch_idx, (x, target) in enumerate(train_loader):
@@ -12,12 +25,13 @@ def train(model, device, train_loader, optimizer):
         optimizer.zero_grad()
         output = model(x).to(device)
         #print(output.shape, target.shape)
-        loss = F.mse_loss(output, target)
+        #loss = F.mse_loss(output, target)
+        loss = log_mse(output, target)
         loss.backward()
         optimizer.step()
         error.append(loss.item())
         #print(model.action_encoder.encoder[0].weight)
-    #print(output[0], target[0])
+    print(output[0], target[0])
 
     return sum(error) / len(error)
 
@@ -30,7 +44,10 @@ def validate(model, device, test_loader):
             action, obs, target = x[0].to(device), x[1].to(device), target.to(device)
             x = [action, obs]
             output = model(x).to(device)
-            test_loss += F.mse_loss(output, target).item()  # sum up batch loss
+            #test_loss += F.mse_loss(output, target).item()  # sum up batch loss
+            #test_loss += log_mse(output, target).item()
+            test_loss += MAPE(output, target).item()
+            #print(MAPE(output, target).item())
     # print(output[:5])
     # print(target[:5])
     test_loss /= len(test_loader)
