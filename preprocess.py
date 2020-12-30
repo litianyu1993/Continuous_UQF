@@ -117,12 +117,12 @@ def generate_data(**option):
 
 def construct_PR_target(kde, x, rewards):
     x =  x.reshape(x.shape[0], -1)
-    logprob = []
+    prob = []
     for i in range(len(x)):
         logprob = np.asarray(KDE.compute_score(kde, x[i].reshape(1, -1)))
-        logprob = np.exp(logprob)
-    logprob = np.asarray(logprob).reshape(-1, )
-    return np.multiply(logprob, rewards)
+        prob.append(np.exp(logprob))
+    prob = np.asarray(prob).reshape(-1, )
+    return np.multiply(prob, rewards)
 
 def get_data_loaders(kde, batch_size = 256, **option_list):
 
