@@ -8,6 +8,18 @@ from torch import optim
 from preprocess import get_kde, get_data_loaders
 from Encoder import Encoder
 
+def log_mse(output, target):
+    loss = torch.log(torch.mean((output - target) ** 2))
+    #loss = torch.log(torch.mean((torch.log(output) - torch.log(target)) ** 2))
+    return loss
+
+def MAPE(output, target):
+    loss = torch.mean(torch.abs(target - output)/target)
+    # print(torch.abs(target - output)[:5], target.shape)
+    #print(torch.mean(torch.abs(target - output)/target))
+    #print(torch.abs(output - target)[0], torch.abs(target)[0], output[0], target[0])
+    return loss
+
 def normalize_weights(W):
     size = torch.numel(W) ** (1/len(W.shape))
     return W/size
@@ -95,32 +107,38 @@ class CWFA_AO(nn.Module):
     def planning(self, x, next_A):
         actions = x[0]
         obss = x[1]
+        #print(actions)
         if not torch.is_tensor(actions):
-            actions = torch.from_numpy(actions).float()
+            actions = torch.from_numpy(np.asarray(actions)).float()
         if not torch.is_tensor(obss):
-            obss = torch.from_numpy(obss).float()
+            obss = torch.from_numpy(np.asarray(obss)).float()
         actions = actions.float()
         obss = obss.float()
+        if len(obss) != 0:
+            #print(obss.shape, actions.shape)
+            assert obss.shape[0] == actions.shape[0], print(
+                'length mismatch between inputs')
 
-        assert obss.shape[1] == actions.shape[1], print(
-            'length mismatch between inputs')
+            actions = actions.reshape(1, actions.shape[0], -1)
+            obss = obss.reshape(1, obss.shape[0], -1)
+            input_action_shape = actions.shape
+            input_obs_shape = obss.shape
+            action_r = actions.reshape(actions.shape[0] * actions.shape[1], -1)
+            obs_r = obss.reshape(obss.shape[0] * obss.shape[1], -1)
+            encoded_action = self.action_encoder(action_r)
+            encoded_obs = self.obs_encoder(obs_r)
 
-        input_action_shape = actions.shape
-        input_obs_shape = obss.shape
-        action_r = actions.reshape(actions.shape[0] * actions.shape[1], -1)
-        obs_r = obss.reshape(obss.shape[0] * obss.shape[1], -1)
-        encoded_action = self.action_encoder(action_r)
-        encoded_obs = self.obs_encoder(obs_r)
+            act_seq = encoded_action.reshape(input_action_shape[0], input_action_shape[1], -1)
+            obs_seq = encoded_obs.reshape(input_obs_shape[0], input_obs_shape[1], -1)
 
-        act_seq = encoded_action.reshape(input_action_shape[0], input_action_shape[1], -1)
-        obs_seq = encoded_obs.reshape(input_obs_shape[0], input_obs_shape[1], -1)
-
-        # tmp = self.alpha.repeat(act_seq.shape[0], 1)
-        tmp = torch.einsum('i, ijkl, nj, nk -> nl', self.alpha, self.A, act_seq[:, 0, :], obs_seq[:, 0, :])
-        for i in range(1, actions.shape[1]):
-            tmp = torch.einsum('ni, ijkl, nj, nk -> nl', tmp, self.A, act_seq[:, i, :], obs_seq[:, i, :])
-        print(tmp.shape, next_A.shape, self.Omega.shape)
-        tmp = torch.einsum('ni, ijk, km', tmp, next_A, self.Omega)
+            # tmp = self.alpha.repeat(act_seq.shape[0], 1)
+            tmp = torch.einsum('i, ijkl, nj, nk -> nl', self.alpha, self.A, act_seq[:, 0, :], obs_seq[:, 0, :])
+            for i in range(1, actions.shape[1]):
+                tmp = torch.einsum('ni, ijkl, nj, nk -> nl', tmp, self.A, act_seq[:, i, :], obs_seq[:, i, :])
+            #print(tmp.shape, next_A.shape, self.Omega.shape)
+            tmp = torch.einsum('ni, ijk, km->njm', tmp, next_A, self.Omega)
+        else:
+            tmp = torch.einsum('i, ijk, km', self.alpha, next_A, self.Omega)
         return tmp.squeeze()
 
     def _get_params(self):
@@ -179,8 +197,8 @@ def learn_CWFA(**option_list):
 
     cwfa = CWFA_AO(action_encoder, obs_encoder, **cwfa_option)
     optimizer = optim.Adam(cwfa.parameters(), lr=fit_option['lr'], amsgrad=True)
-    train_lambda = lambda model: train(model, cwfa_option['device'], train_loader, optimizer)
-    validate_lambda = lambda model: validate(model, cwfa_option['device'], validate_loader)
+    train_lambda = lambda model: train(model, cwfa_option['device'], train_loader, optimizer, fit_option['train_loss'])
+    validate_lambda = lambda model: validate(model, cwfa_option['device'], validate_loader, fit_option['vali_loss'])
     fit_option['optimizer'] = optimizer
     cwfa = fit(cwfa, train_lambda, validate_lambda, **fit_option)
     return cwfa
