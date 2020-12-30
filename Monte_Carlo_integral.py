@@ -10,7 +10,7 @@ class Simple_Example(nn.Module):
 def MC_integral(model, **option):
     option_default = {
         'num_examples': 100000,
-        'range': [0, 1],
+        'range': [-1, 1],
         'input_dim': 1
     }
     option = {**option_default, **option}
