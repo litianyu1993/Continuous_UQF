@@ -22,7 +22,7 @@ def sliding_window(action_obs, rewards, window_size, action_all, obs_all):
             windowed_rewards.append(rewards[j, i+window_size])
             windowed_obs.append(obs_all[j, i:i+window_size, :])
             windowed_action.append(action_all[j, i:i + window_size, :])
-            i+= window_size
+            i+= 1
     return np.asarray(windowed_action_obs), np.asarray(windowed_rewards), np.asarray(windowed_action), np.asarray(windowed_obs)
 
 
@@ -44,6 +44,9 @@ def construct_KDE(**option):
     kde = KDE.Compute_KDE(x.reshape(x.shape[0], -1))
     return kde
 
+def normalize(x):
+    return (x - np.mean(x))/np.std(x)
+
 def get_kde(**kde_option):
     kde_option_default = {
         'env': gym.make('Pendulum-v0'),
@@ -53,7 +56,7 @@ def get_kde(**kde_option):
         'load_kde': False
     }
     kde_option = {**kde_option_default, **kde_option}
-    kde_address =  kde_option['env'].unwrapped.spec.id + ' ' +str(kde_option['window_size'])
+    kde_address =  kde_option['env'].unwrapped.spec.id + ' w' +str(kde_option['window_size']) + ' el' + str(kde_option['max_episode_length']) + ' n'+str(kde_option['num_trajs'])
     if kde_option['load_kde']:
         f = open(kde_address, "rb")
         kde = pickle.load(f)
@@ -77,6 +80,7 @@ def get_dataset(kde, **option):
     action_all_pr, observation_all_pr, x_pr, new_rewards_pr = generate_data(**option)
     pr = construct_PR_target(kde, x_pr, new_rewards_pr)
     tl.set_backend('pytorch')
+    pr = normalize(pr)
     new_data = Dataset(data=[tl.tensor(action_all_pr).float(), tl.tensor(observation_all_pr).float(), tl.tensor(pr).float()])
 
 
@@ -103,19 +107,13 @@ def generate_data(**option):
     option.pop('window_size', None)
     observations, rewards, actions = get_trajectories(**option)
     'Need to change this in the future for other environments'
-    if option['env'].unwrapped.spec.id == 'Pendulum-v0':
-        rewards += 17 #Make reward positive
+    # if option['env'].unwrapped.spec.id == 'Pendulum-v0':
+    #     rewards += 17 #Make reward positive
 
     action_obs = KDE.combine_obs_action(observations, actions)
     x, new_rewards, actions_new, obss_new = sliding_window(action_obs, rewards, window_size, actions, observations)
 
     return actions_new, obss_new, x, new_rewards
-
-def normalize(x):
-    ori_shape = x.shape
-    new_x = x.reshape(x.shape[0], -1)
-    new_x = (new_x - np.mean(new_x, axis = 0))/np.std(new_x, axis=0)
-    return new_x.reshape(ori_shape)
 
 def construct_PR_target(kde, x, rewards):
     x =  x.reshape(x.shape[0], -1)
