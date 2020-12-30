@@ -17,7 +17,7 @@ def MAPE(output, target):
     return loss
 
 
-def train(model, device, train_loader, optimizer):
+def train(model, device, train_loader, optimizer, loss_function = F.mse_loss):
     error = []
     for batch_idx, (x, target) in enumerate(train_loader):
         action, obs, target = x[0].to(device), x[1].to(device), target.to(device)
@@ -26,7 +26,7 @@ def train(model, device, train_loader, optimizer):
         output = model(x).to(device)
         #print(output.shape, target.shape)
         #loss = F.mse_loss(output, target)
-        loss = log_mse(output, target)
+        loss = loss_function(output, target)
         loss.backward()
         optimizer.step()
         error.append(loss.item())
@@ -36,7 +36,7 @@ def train(model, device, train_loader, optimizer):
     return sum(error) / len(error)
 
 
-def validate(model, device, test_loader):
+def validate(model, device, test_loader, loss_function = F.mse_loss):
     #hankel.eval()
     test_loss = 0
     with torch.no_grad():
@@ -46,7 +46,7 @@ def validate(model, device, test_loader):
             output = model(x).to(device)
             #test_loss += F.mse_loss(output, target).item()  # sum up batch loss
             #test_loss += log_mse(output, target).item()
-            test_loss += MAPE(output, target).item()
+            test_loss += loss_function(output, target).item()
             #print(MAPE(output, target).item())
     # print(output[:5])
     # print(target[:5])
