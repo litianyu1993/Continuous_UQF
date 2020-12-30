@@ -11,7 +11,7 @@ def convert_wfa_to_uqf(cwfa_ao, **option):
 
     option_default = {
         'num_examples': 100000,
-        'range': [0, 1],
+        'range': [-1, 1],
         'input_dim': action_encoder.input_dim
     }
     option = {**option_default, **option}
@@ -40,12 +40,14 @@ def convert_wfa_to_uqf(cwfa_ao, **option):
 
 def UQF_agent(uqf, next_A, decoder, history, **option):
     option_default = {
-        'range': (0, 1)
+        'range': (-1, 1)
     }
     option = {**option_default, **option}
     planning_vec = uqf.planning(history, next_A).detach().numpy().ravel()
     best_a_encoded = linprog(-planning_vec, bounds=option['range']).x
+    #print(best_a_encoded)
     best_a = decoder(best_a_encoded)
+    #print(best_a)
     return best_a
 
 
@@ -96,6 +98,7 @@ if __name__ == '__main__':
     agent_option = {
         'range': (0, 1)
     }
+    print(uqf)
     print(UQF_agent(uqf, next_A, action_decoder, [actions, obss], **agent_option))
 
 
